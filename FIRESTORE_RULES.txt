@@ -1,0 +1,68 @@
+// YemCart Firestore Security Rules
+// ====================================
+// 
+// Copy these rules to your Firestore Database Rules in Firebase Console:
+// 
+// 1. Go to Firebase Console
+// 2. Select your project
+// 3. Go to Firestore Database
+// 4. Click on "Rules" tab
+// 5. Replace the existing rules with the code below
+// 6. Publish the rules
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===== USERS COLLECTION =====
+    match /users/{userId} {
+      // Users can read their own data
+      allow read: if request.auth.uid == userId;
+      
+      // Users can write their own data
+      allow write: if request.auth.uid == userId;
+      
+      // Authenticated users can read public user info (for store pages)
+      allow read: if request.auth != null;
+    }
+    
+    // ===== PRODUCTS COLLECTION =====
+    match /products/{productId} {
+      // Everyone can read products
+      allow read: if true;
+      
+      // Only authenticated users can create products
+      allow create: if request.auth != null 
+        && request.resource.data.sellerId == request.auth.uid
+        && request.resource.data.keys().hasAll(['title', 'description', 'price', 'images', 'sellerId', 'createdAt']);
+      
+      // Only the seller of a product can update their own products
+      allow update: if request.auth.uid == resource.data.sellerId
+        && request.resource.data.sellerId == resource.data.sellerId;
+      
+      // Only the seller of a product can delete their own products
+      allow delete: if request.auth.uid == resource.data.sellerId;
+    }
+    
+    // ===== FAVORITES COLLECTION =====
+    match /favorites/{favoriteId} {
+      // Users can read their own favorites
+      allow read: if request.auth.uid == resource.data.userId;
+      
+      // Only authenticated users can create favorites
+      allow create: if request.auth != null 
+        && request.auth.uid == request.resource.data.userId;
+      
+      // Users can delete their own favorites
+      allow delete: if request.auth.uid == resource.data.userId;
+      
+      // No updates allowed
+      allow update: if false;
+    }
+    
+    // ===== DEFAULT DENY =====
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
